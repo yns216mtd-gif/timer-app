@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F3F6EE">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="しずかな時間">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<title>しずかな時間 タイマー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Old+Mincho:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* 配置: 1カラム。上に切り替え、中央に輪と残り時間、下に操作と設定。淡い地に森の写真を薄く敷き、文字は深い苔色。 */
+:root{
+  color-scheme:light;
+  --bg:#F3F6EE;
+  --surface:#F6F8F1;
+  --ink:#16261B;
+  --muted:#2F4334;
+  --line:#C4CFBE;
+  --sel:#1F3A28;    /* 深い苔色: 選択中と主ボタン */
+  --calm:#2F7A3F;   /* 苔: 瞑想・倍音浴 */
+  --work:#B4472B;   /* 朱: 作業 */
+  --rest:#2C6E7A;   /* 沢の水: 休憩 */
+  --tone:var(--calm);
+  --photo:.32;
+  --display:"Zen Old Mincho","Hiragino Mincho ProN","Yu Mincho",serif;
+  --body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",sans-serif;
+}
+.bg{position:fixed;inset:0;background:center/cover no-repeat;opacity:var(--photo);pointer-events:none;z-index:0}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;overscroll-behavior-y:none;-webkit-tap-highlight-color:transparent;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
+:focus-visible{outline:2px solid var(--tone);outline-offset:3px}
+
+.app{position:relative;z-index:1;max-width:540px;min-height:100%;margin:0 auto;padding:calc(28px + env(safe-area-inset-top)) max(20px,env(safe-area-inset-left)) calc(32px + env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-right));display:flex;flex-direction:column;gap:22px}
+.app[data-tone="work"]{--tone:var(--work)}
+.app[data-tone="rest"]{--tone:var(--rest)}
+
+header{display:flex;flex-direction:column;gap:2px}
+h1{font-family:var(--display);font-weight:600;font-size:26px;letter-spacing:.14em;margin:0}
+.sub{color:var(--muted);font-size:13px;margin:0}
+
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+@media (max-width:520px){.tabs{grid-template-columns:repeat(2,1fr)}}
+.tab{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:10px 6px 9px;text-align:left;display:flex;flex-direction:column;gap:1px;transition:border-color .2s,background .2s}
+.tab b{font-family:var(--display);font-weight:600;font-size:17px;letter-spacing:.06em}
+.tab span{font-size:12px;color:var(--muted)}
+.tab[aria-selected="true"]{background:var(--sel);border-color:var(--sel);color:var(--surface)}
+.tab[aria-selected="true"] span{color:inherit}
+
+.stage{position:relative;width:min(100%,340px);aspect-ratio:1;margin:4px auto 0}
+.stage::before{content:"";position:absolute;inset:2.7%;border-radius:50%;background:rgba(246,248,241,.86)}
+.stage svg{position:relative;width:100%;height:100%;display:block;transform:rotate(-90deg)}
+.track{fill:none;stroke:var(--line);stroke-width:2}
+.prog{fill:none;stroke:var(--tone);stroke-width:5;stroke-linecap:round;transition:stroke .4s}
+.breath{position:absolute;inset:17%;border-radius:50%;background:var(--tone);opacity:.13;transform:scale(.62);will-change:transform}
+.readout{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-align:center}
+.phase{font-size:14px;letter-spacing:.3em;color:var(--tone);font-weight:700;padding-left:.3em;min-height:1.6em}
+.time{font-family:var(--display);font-size:clamp(54px,19vw,82px);line-height:1;display:flex}
+.time i{font-style:normal;width:.6em;text-align:center}
+.time i.c{width:.3em}
+.hint{font-size:13px;color:var(--muted);min-height:1.6em}
+
+.steps{display:flex;gap:8px;justify-content:center;align-items:center;font-size:13px;color:var(--muted);min-height:26px;flex-wrap:wrap}
+.step{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:2px 12px}
+.step.on{border-color:var(--tone);color:var(--tone);font-weight:700}
+
+.controls{display:flex;gap:10px;justify-content:center}
+.btn{border:1px solid var(--sel);background:var(--surface);border-radius:4px;padding:12px 22px;font-weight:700;letter-spacing:.08em;min-width:120px}
+.btn.primary{background:var(--sel);color:var(--surface);min-width:170px}
+.btn:disabled{opacity:.35;cursor:default}
+
+.panel{background:rgba(246,248,241,.84);border:1px solid var(--line);border-radius:8px;padding:12px 16px;display:flex;flex-direction:column;gap:8px;font-size:14px}
+.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.row label,.row .lab{color:var(--muted);min-width:4.5em}
+input[type=range]{flex:1;min-width:140px;height:44px;margin:0;accent-color:var(--tone)}
+.mini:disabled{opacity:.35;cursor:default}
+.mini{border:1px solid var(--line);background:var(--surface);border-radius:4px;padding:6px 12px;font-size:13px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}
+.setrow{align-self:center;justify-content:center;margin-top:-6px;padding:6px 14px;background:rgba(246,248,241,.84);border:1px solid var(--line);border-radius:8px;font-size:14px}
+.setrow .lab{min-width:0}
+.setrow .note{color:var(--ink)}
+.stepper{display:flex;align-items:center;gap:6px}
+.stepper .mini{width:44px;padding:6px 0;font-weight:700;font-size:16px}
+.stepper output{min-width:2.2em;text-align:center;font-family:var(--display);font-size:20px}
+[hidden]{display:none!important}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.vh:focus-visible+label{outline:2px solid var(--tone);outline-offset:3px}
+label.mini{cursor:pointer;color:var(--ink);min-width:0}
+.note{color:var(--muted);font-size:12.5px;margin:0}
+@media (prefers-reduced-motion: reduce){.breath{display:none}.tab,.prog{transition:none}}
+</style>
+</head>
+<body>
+<div class="bg" id="bg"></div>
+<main class="app" id="app" data-tone="calm">
+  <header>
+    <h1>しずかな時間</h1>
+    <p class="sub">瞑想・倍音浴・ポモドーロ</p>
+  </header>
+
+  <div class="tabs" role="tablist" aria-label="タイマーの種類">
+    <button class="tab" role="tab" id="tab-m5" data-mode="m5" aria-selected="true"><b>瞑想 5分</b><span>BGM 朝の光</span></button>
+    <button class="tab" role="tab" id="tab-m10" data-mode="m10" aria-selected="false"><b>瞑想 10分</b><span>BGM 夜の波</span></button>
+    <button class="tab" role="tab" id="tab-pomo" data-mode="pomo" aria-selected="false"><b>ポモドーロ</b><span>25分 + 5分</span></button>
+    <button class="tab" role="tab" id="tab-bath" data-mode="bath" aria-selected="false"><b>倍音浴 60分</b><span>クリスタルボウル</span></button>
+  </div>
+
+  <div class="stage">
+    <svg viewBox="0 0 300 300" aria-hidden="true">
+      <circle class="track" cx="150" cy="150" r="142"/>
+      <circle class="prog" id="prog" cx="150" cy="150" r="142"/>
+    </svg>
+    <div class="breath" id="breath"></div>
+    <div class="readout">
+      <div class="phase" id="phase">瞑想</div>
+      <div class="time" id="time" role="timer" aria-live="off"></div>
+      <div class="hint" id="hint">鐘の音ではじまります</div>
+    </div>
+  </div>
+
+  <div class="steps" id="steps" hidden>
+    <span class="step" id="step-work">作業 25分</span><span>→</span>
+    <span class="step" id="step-rest">休憩 5分</span>
+    <span id="sets"></span>
+  </div>
+
+  <div class="controls">
+    <button class="btn primary" id="main">はじめる</button>
+    <button class="btn" id="reset" disabled>リセット</button>
+  </div>
+
+  <div class="row setrow" id="repeat-row" hidden>
+    <span class="lab">セット数</span>
+    <div class="stepper" role="group" aria-label="くり返すセット数">
+      <button class="mini" id="sets-minus" aria-label="1セット減らす">−</button>
+      <output id="sets-val" aria-live="polite">1</output>
+      <button class="mini" id="sets-plus" aria-label="1セット増やす">＋</button>
+    </div>
+    <span class="note" id="sets-total"></span>
+  </div>
+
+  <section class="panel" aria-label="音の設定">
+    <div class="row" id="vol-row">
+      <label for="vol">音量</label>
+      <input type="range" id="vol" min="0" max="100" value="70">
+    </div>
+    <div class="row" id="pomo-opts" hidden>
+      <span class="lab">アラーム</span>
+      <button class="mini" id="try-work">25分後の音を試聴</button>
+      <button class="mini" id="try-rest">その5分後の音を試聴</button>
+    </div>
+    <div class="row" id="med-opts">
+      <span class="lab">BGM</span>
+      <button class="mini" id="try-bgm">このBGMを10秒試聴</button>
+    </div>
+    <div class="row">
+      <span class="lab">背景</span>
+      <input type="file" id="bg-file" accept="image/*" class="vh"><label class="mini" for="bg-file">自分の写真にする</label>
+      <button class="mini" id="bg-reset" hidden>日替わりの写真に戻す</button>
+    </div>
+    <div class="row">
+      <label for="photo">背景の濃さ</label>
+      <input type="range" id="photo" min="10" max="45" value="32">
+    </div>
+    <p class="note" id="credit"></p>
+    <p class="note" id="vol-note">画面を消しても、ほかのアプリに切り替えても音は続きます。消音モードでも鳴ります。</p>
+  </section>
+</main>
+
+<script>
+(function(){
+'use strict';
+// 音はあらかじめ書き出した音声ファイルを <audio> で再生する。
+// 画面を消しても再生が続き、残り時間は音声の再生位置から求める。
+var MODES={
+  m5:{kind:'med',dur:300,src:'audio/m5.mp3',label:'瞑想',title:'瞑想 5分'},
+  m10:{kind:'med',dur:600,src:'audio/m10.mp3',label:'瞑想',title:'瞑想 10分'},
+  pomo:{kind:'pomo',work:1500,rest:300,src:'audio/pomodoro.mp3',title:'ポモドーロ'},
+  bath:{kind:'med',dur:3600,src:'audio/bath.mp3',label:'倍音浴',title:'倍音浴 60分',quiet:true}
+};
+var LEAD=0.25; // 瞑想の音声は、はじめの鐘の前にこの秒数だけ間がある
+var $=function(id){return document.getElementById(id)};
+var app=$('app'),prog=$('prog'),timeEl=$('time'),phaseEl=$('phase'),hintEl=$('hint'),
+    mainBtn=$('main'),resetBtn=$('reset'),volEl=$('vol'),breathEl=$('breath');
+var CIRC=2*Math.PI*142;
+prog.style.strokeDasharray=CIRC;
+
+var A=new Audio(), P=new Audio(); // A: 本編, P: 試聴
+[A,P].forEach(function(a){ a.preload='auto'; a.setAttribute('playsinline',''); a.hidden=true; document.body.appendChild(a); });
+var mode='m5';
+var status='idle'; // idle | running | paused | done
+var setsDone=0,lastCt=0,loading=false,note='';
+var targetSets=1; // ポモドーロをくり返すセット数
+
+/* ---------- 保存された設定 ---------- */
+try{
+  var v=localStorage.getItem('shizuka.vol'); if(v!==null) volEl.value=v;
+  var sv=parseInt(localStorage.getItem('shizuka.sets'),10); if(sv>=1&&sv<=12) targetSets=sv;
+  var sm=localStorage.getItem('shizuka.mode');
+  if(sm&&MODES[sm]){ mode=sm; Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(x){x.setAttribute('aria-selected',x.dataset.mode===sm?'true':'false')}); }
+}catch(e){}
+function vol(){return Math.pow(volEl.value/100,1.6)}
+// iPhoneはページから音量を変えられない（本体のボタンで調整する）
+var canVolume=true;
+try{ P.volume=0.5; canVolume=Math.abs(P.volume-0.5)<0.01; }catch(e){ canVolume=false; }
+if(canVolume){ A.volume=P.volume=vol(); }
+else { $('vol-row').hidden=true; $('vol-note').textContent+=' 音量は本体の音量ボタンで調整してください。'; }
+
+/* ---------- 音声の保存（ホーム画面に追加して使うとき） ---------- */
+// 一度再生した音声は端末に保存し、次からは保存済みのものを再生する（電波がなくても鳴る）
+var AUDIO_CACHE='shizuka-audio-v1',urlFor={},saving={};
+function offlineReady(){ try{ return !!(window.caches&&navigator.serviceWorker&&navigator.serviceWorker.controller); }catch(e){ return false; } }
+function resolveSrc(src){
+  if(urlFor[src]||!offlineReady()) return;
+  caches.open(AUDIO_CACHE).then(function(c){ return c.match(src); }).then(function(r){ return r&&r.blob(); })
+    .then(function(b){ if(b&&!urlFor[src]) urlFor[src]=URL.createObjectURL(b); }).catch(function(){});
+}
+function saveForOffline(src){
+  if(urlFor[src]||saving[src]||!offlineReady()) return;
+  saving[src]=true;
+  caches.open(AUDIO_CACHE).then(function(c){ return c.match(src).then(function(r){ return r||c.add(src); }); })
+    .then(function(){ saving[src]=false; resolveSrc(src); },function(){ saving[src]=false; });
+}
+function warmUp(){ ['audio/alarm-work.mp3','audio/alarm-rest.mp3'].forEach(saveForOffline); resolveSrc(MODES[mode].src); }
+warmUp();
+try{ if(navigator.serviceWorker) navigator.serviceWorker.addEventListener('controllerchange',warmUp); }catch(e){}
+
+/* ---------- 進行 ---------- */
+function play(){
+  loading=true; note='';
+  var p=A.play();
+  if(p&&p.catch) p.catch(function(){
+    if(status!=='running') return;
+    status=A.currentTime>0?'paused':'idle'; loading=false;
+    note='音を再生できませんでした。通信を確かめて、もう一度押してください'; render();
+  });
+}
+function start(){
+  stopPreview();
+  var m=MODES[mode];
+  if(A.dataset.track!==mode){ A.src=urlFor[m.src]||m.src; A.dataset.track=mode; }
+  saveForOffline(m.src);
+  try{ A.currentTime=0; }catch(e){}
+  setsDone=0; lastCt=0;
+  A.loop=m.kind==='pomo'&&targetSets>1;
+  status='running'; play(); setSession(m); render();
+}
+function pause(){ status='paused'; A.pause(); render(); }
+function resume(){ status='running'; play(); render(); }
+function reset(){ status='idle'; note=''; A.pause(); try{ A.currentTime=0; }catch(e){} setsDone=0; lastCt=0; render(); }
+function elapsed(){
+  if(status==='idle') return 0;
+  return Math.max(0,A.currentTime-(MODES[mode].kind==='med'?LEAD:0));
+}
+function logic(){
+  if(status!=='running') return;
+  var m=MODES[mode],ct=A.currentTime;
+  if(m.kind==='med'){ if(ct-LEAD>=m.dur) status='done'; } // 終わりの鐘はこのあとも鳴り続ける
+  else {
+    if(ct<lastCt-900) setsDone++;       // 音声が頭に戻った = 次のセットに入った
+    lastCt=ct;
+    A.loop=setsDone+1<targetSets;       // 最後のセットはくり返さない
+  }
+  render();
+}
+setInterval(logic,250);
+A.addEventListener('timeupdate',logic);
+A.addEventListener('playing',function(){ loading=false; render(); });
+A.addEventListener('waiting',function(){ loading=true; render(); });
+// 電話やイヤホンの抜き差しで止められたとき、ロック画面から操作されたとき
+A.addEventListener('pause',function(){ if(status==='running'&&!A.ended){ status='paused'; render(); } });
+A.addEventListener('play',function(){ if(status==='paused'){ status='running'; render(); } });
+A.addEventListener('ended',function(){ if(status==='running'||status==='paused'){ status='done'; render(); } });
+A.addEventListener('error',function(){
+  if(status==='idle'||status==='done') return;
+  status='idle'; loading=false; A.dataset.track=''; resolveSrc(MODES[mode].src);
+  note='音声を読み込めませんでした。通信を確かめて、もう一度押してください'; render();
+});
+function setSession(m){
+  try{
+    if(!navigator.mediaSession) return;
+    if(window.MediaMetadata) navigator.mediaSession.metadata=new MediaMetadata({title:m.title,artist:'しずかな時間',artwork:[{src:'icon-512.png',sizes:'512x512',type:'image/png'}]});
+    navigator.mediaSession.setActionHandler('play',function(){ if(status==='paused') resume(); });
+    navigator.mediaSession.setActionHandler('pause',function(){ if(status==='running') pause(); });
+    ['seekbackward','seekforward','seekto','previoustrack','nexttrack'].forEach(function(a){ try{navigator.mediaSession.setActionHandler(a,null)}catch(e){} });
+  }catch(e){}
+}
+
+/* ---------- 表示 ---------- */
+function fmt(sec){
+  sec=Math.max(0,Math.ceil(sec-0.001));
+  var mm=String(Math.floor(sec/60)),ss=String(sec%60);
+  if(mm.length<2) mm='0'+mm; if(ss.length<2) ss='0'+ss;
+  return mm+':'+ss;
+}
+var lastTime='';
+function setTime(str){
+  if(str===lastTime) return; lastTime=str;
+  var h=''; for(var i=0;i<str.length;i++) h+=str[i]===':'?'<i class="c">:</i>':'<i>'+str[i]+'</i>';
+  timeEl.innerHTML=h; timeEl.setAttribute('aria-label','残り '+str);
+}
+function render(){
+  var m=MODES[mode],el=elapsed();
+  var rem,frac,tone='calm',phase,hint='';
+  if(m.kind==='med'){
+    rem=m.dur-el; frac=Math.min(1,el/m.dur); phase=m.label;
+    if(status==='idle') hint='鐘の音ではじまります';
+    else if(status==='paused') hint='一時停止中';
+    else if(status==='done') hint='おつかれさまでした';
+    else if(m.quiet) hint='音に身をまかせます';
+    else { var c=el%10; hint=c<4?'吸う':'吐く'; }
+  } else {
+    var cur=Math.min(setsDone+1,targetSets);
+    if(status==='done'){ tone='rest'; phase='完了'; hint=cur+'セット終わりました'; }
+    else if(status!=='idle'&&el>=m.work){
+      rem=m.work+m.rest-el; frac=Math.min(1,(el-m.work)/m.rest); tone='rest'; phase='休憩';
+      hint=status==='paused'?'一時停止中':(rem<=0?(cur<targetSets?'まもなく次のセットです':'おつかれさまでした'):'終わると木の音と低い鐘が鳴ります');
+    } else {
+      rem=m.work-el; frac=el/m.work; tone='work'; phase='作業';
+      hint=status==='paused'?'一時停止中':(status==='idle'?'25分後と、その5分後に別の音が鳴ります':'終わると明るいチャイムが鳴ります');
+    }
+    $('step-work').classList.toggle('on',tone==='work'&&status!=='done');
+    $('step-rest').classList.toggle('on',tone==='rest'&&status!=='done');
+    $('sets').textContent=targetSets>1?(cur+' / '+targetSets+' セット目'):'';
+    $('sets-val').textContent=targetSets;
+    var mins=targetSets*30; $('sets-total').textContent='合計 '+(mins>=60?Math.floor(mins/60)+'時間'+(mins%60?mins%60+'分':''):mins+'分');
+    $('sets-minus').disabled=targetSets<=(status==='idle'?1:cur); $('sets-plus').disabled=targetSets>=12;
+  }
+  if(status==='done'){ rem=0; frac=1; }
+  if(status==='running'&&loading) hint='読み込み中…';
+  if(note) hint=note;
+  app.dataset.tone=tone;
+  phaseEl.textContent=phase; hintEl.textContent=hint;
+  setTime(fmt(rem));
+  prog.style.strokeDashoffset=CIRC*(1-frac);
+  mainBtn.textContent=status==='idle'?'はじめる':status==='running'?'一時停止':status==='paused'?'再開':'もう一度';
+  resetBtn.disabled=status==='idle';
+  var isPomo=m.kind==='pomo';
+  $('steps').hidden=!isPomo; $('pomo-opts').hidden=!isPomo; $('repeat-row').hidden=!isPomo; $('med-opts').hidden=isPomo;
+  breathEl.hidden=isPomo||!!m.quiet;
+}
+// 呼吸の円: 4秒で広がり、6秒で縮む
+function frame(){
+  if(MODES[mode].kind==='med'&&!MODES[mode].quiet){
+    var s=0.62;
+    if(status==='running'||status==='paused'){
+      var c=elapsed()%10, k=c<4?c/4:1-(c-4)/6;
+      k=0.5-0.5*Math.cos(Math.PI*k);
+      s=0.62+0.38*k;
+    }
+    breathEl.style.transform='scale('+s.toFixed(3)+')';
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---------- 試聴 ---------- */
+var pKind=null,pTimer=null;
+function stopPreview(){
+  clearTimeout(pTimer); pKind=null;
+  try{ P.pause(); }catch(e){}
+  $('try-bgm').textContent='このBGMを10秒試聴';
+}
+function preview(kind){
+  var was=pKind; stopPreview();
+  if(kind==='bgm'&&was==='bgm') return;
+  if(status==='running'){ note='再生中は試聴できません'; render(); setTimeout(function(){ note=''; render(); },2500); return; }
+  if(status==='done') A.pause();
+  pKind=kind;
+  var src=kind==='work'?'audio/alarm-work.mp3':kind==='rest'?'audio/alarm-rest.mp3':MODES[mode].src;
+  P.src=urlFor[src]||src;
+  if(canVolume) P.volume=vol();
+  var p=P.play(); if(p&&p.catch) p.catch(function(){ stopPreview(); });
+  if(kind==='bgm'){ $('try-bgm').textContent='試聴を止める'; pTimer=setTimeout(stopPreview,11000); }
+}
+P.addEventListener('ended',stopPreview);
+P.addEventListener('loadedmetadata',function(){ if(pKind==='bgm'){ try{ P.currentTime=40; }catch(e){} } });
+
+/* ---------- 操作 ---------- */
+mainBtn.addEventListener('click',function(){
+  if(status==='idle'||status==='done') start();
+  else if(status==='running') pause();
+  else resume();
+});
+resetBtn.addEventListener('click',reset);
+Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(b){
+  b.addEventListener('click',function(){
+    if(b.dataset.mode===mode) return;
+    stopPreview(); reset(); mode=b.dataset.mode; resolveSrc(MODES[mode].src);
+    try{localStorage.setItem('shizuka.mode',mode)}catch(e){}
+    Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(x){x.setAttribute('aria-selected',x===b?'true':'false')});
+    render();
+  });
+});
+volEl.addEventListener('input',function(){
+  if(canVolume){ A.volume=P.volume=vol(); }
+  try{localStorage.setItem('shizuka.vol',volEl.value)}catch(e){}
+});
+function setSets(n){
+  var min=status==='idle'?1:Math.min(setsDone+1,12);
+  targetSets=Math.min(12,Math.max(min,n));
+  try{localStorage.setItem('shizuka.sets',String(targetSets))}catch(e){}
+  if(MODES[mode].kind==='pomo'&&status!=='idle') A.loop=setsDone+1<targetSets;
+  render();
+}
+$('sets-minus').addEventListener('click',function(){setSets(targetSets-1)});
+$('sets-plus').addEventListener('click',function(){setSets(targetSets+1)});
+$('try-work').addEventListener('click',function(){preview('work')});
+$('try-rest').addEventListener('click',function(){preview('rest')});
+$('try-bgm').addEventListener('click',function(){preview('bgm')});
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible'){ applyBg(); logic(); render(); } });
+/* ---------- 背景 ---------- */
+var bgEl=$('bg'),photoEl=$('photo');
+var PHOTOS=[{f:'bg-1.jpg',by:'Casey Horner'},{f:'bg-2.jpg',by:'Jeremy Bishop'},{f:'bg-3.jpg',by:'Krisztina Varsanyi'}];
+var customBg='';
+// 日付から決まる乱数で、その日の1枚を選ぶ
+function todayPhoto(){
+  var d=new Date(),h=d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();
+  h=Math.imul(h^(h>>>15),2246822519); h=Math.imul(h^(h>>>13),3266489917); h^=h>>>16;
+  return PHOTOS[(h>>>0)%PHOTOS.length];
+}
+function applyBg(url){
+  if(url!==undefined) customBg=url;
+  var ph=todayPhoto();
+  bgEl.style.backgroundImage='url("'+(customBg||ph.f)+'")';
+  $('bg-reset').hidden=!customBg;
+  $('credit').textContent=customBg?'':'今日の写真: '+ph.by+'（Unsplash）。写真は日替わりです。';
+}
+function applyPhoto(){ document.documentElement.style.setProperty('--photo',photoEl.value/100); }
+try{
+  var pv=localStorage.getItem('shizuka.photo'); if(pv!==null) photoEl.value=pv;
+  var saved=localStorage.getItem('shizuka.bg'); if(saved) customBg=saved;
+}catch(e){}
+applyBg();
+applyPhoto();
+photoEl.addEventListener('input',function(){ applyPhoto(); try{localStorage.setItem('shizuka.photo',photoEl.value)}catch(e){} });
+$('bg-file').addEventListener('change',function(ev){
+  var f=ev.target.files&&ev.target.files[0]; if(!f) return;
+  var rd=new FileReader();
+  rd.onload=function(){
+    var img=new Image();
+    img.onload=function(){
+      var k=Math.min(1,1400/Math.max(img.width,img.height));
+      var c=document.createElement('canvas'); c.width=Math.round(img.width*k); c.height=Math.round(img.height*k);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      var url=c.toDataURL('image/jpeg',0.8);
+      applyBg(url);
+      try{localStorage.setItem('shizuka.bg',url)}catch(e){ hintEl.textContent='写真は今回だけ表示します（保存できませんでした）'; }
+    };
+    img.onerror=function(){ hintEl.textContent='この画像は読み込めませんでした'; };
+    img.src=rd.result;
+  };
+  rd.readAsDataURL(f); ev.target.value='';
+});
+$('bg-reset').addEventListener('click',function(){ applyBg(''); try{localStorage.removeItem('shizuka.bg')}catch(e){} });
+render();
+// ホーム画面に追加して単体で開いたときは、電波がなくても起動できるようにする
+try{
+  if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost')&&window.top===window) navigator.serviceWorker.register('sw.js').catch(function(){});
+}catch(e){}
+})();
+</script>
+</body>
+</html>
