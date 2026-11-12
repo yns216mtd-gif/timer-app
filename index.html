@@ -95,6 +95,7 @@ input[type=range]{flex:1;min-width:140px;height:44px;margin:0;accent-color:var(-
 .vh:focus-visible+label{outline:2px solid var(--tone);outline-offset:3px}
 label.mini{cursor:pointer;color:var(--ink);min-width:0}
 .note{color:var(--muted);font-size:12.5px;margin:0}
+#vol-note{font-size:clamp(10px,2.9vw,12.5px)}
 @media (prefers-reduced-motion: reduce){.breath{display:none}.tab,.prog{transition:none}}
 </style>
 </head>
@@ -152,26 +153,16 @@ label.mini{cursor:pointer;color:var(--ink);min-width:0}
       <label for="vol">音量</label>
       <input type="range" id="vol" min="0" max="100" value="70">
     </div>
-    <div class="row" id="pomo-opts" hidden>
-      <span class="lab">アラーム</span>
-      <button class="mini" id="try-work">25分後の音を試聴</button>
-      <button class="mini" id="try-rest">その5分後の音を試聴</button>
-    </div>
-    <div class="row" id="med-opts">
-      <span class="lab">BGM</span>
-      <button class="mini" id="try-bgm">このBGMを10秒試聴</button>
-    </div>
-    <div class="row">
-      <span class="lab">背景</span>
-      <input type="file" id="bg-file" accept="image/*" class="vh"><label class="mini" for="bg-file">自分の写真にする</label>
-      <button class="mini" id="bg-reset" hidden>日替わりの写真に戻す</button>
-    </div>
     <div class="row">
       <label for="photo">背景の濃さ</label>
       <input type="range" id="photo" min="10" max="45" value="32">
     </div>
-    <p class="note" id="credit"></p>
-    <p class="note" id="vol-note">画面を消しても、ほかのアプリに切り替えても音は続きます。消音モードでも鳴ります。</p>
+    <div class="row">
+      <span class="lab">背景</span>
+      <input type="file" id="bg-file" accept="image/*" class="vh"><label class="mini" for="bg-file">好みの背景に変更</label>
+      <button class="mini" id="bg-reset" hidden>日替わりの写真に戻す</button>
+    </div>
+    <p class="note" id="vol-note">画面を消しても、ほかのアプリに切り替えても音は続きます。<br>消音モードでも鳴ります。</p>
   </section>
 </main>
 
@@ -193,8 +184,8 @@ var app=$('app'),prog=$('prog'),timeEl=$('time'),phaseEl=$('phase'),hintEl=$('hi
 var CIRC=2*Math.PI*142;
 prog.style.strokeDasharray=CIRC;
 
-var A=new Audio(), P=new Audio(); // A: 本編, P: 試聴
-[A,P].forEach(function(a){ a.preload='auto'; a.setAttribute('playsinline',''); a.hidden=true; document.body.appendChild(a); });
+var A=new Audio();
+A.preload='auto'; A.setAttribute('playsinline',''); A.hidden=true; document.body.appendChild(A);
 var mode='m5';
 var status='idle'; // idle | running | paused | done
 var setsDone=0,lastCt=0,loading=false,note='';
@@ -210,9 +201,9 @@ try{
 function vol(){return Math.pow(volEl.value/100,1.6)}
 // iPhoneはページから音量を変えられない（本体のボタンで調整する）
 var canVolume=true;
-try{ P.volume=0.5; canVolume=Math.abs(P.volume-0.5)<0.01; }catch(e){ canVolume=false; }
-if(canVolume){ A.volume=P.volume=vol(); }
-else { $('vol-row').hidden=true; $('vol-note').textContent+=' 音量は本体の音量ボタンで調整してください。'; }
+try{ A.volume=0.5; canVolume=Math.abs(A.volume-0.5)<0.01; }catch(e){ canVolume=false; }
+if(canVolume){ A.volume=vol(); }
+else { $('vol-row').hidden=true; $('vol-note').appendChild(document.createElement('br')); $('vol-note').appendChild(document.createTextNode('音量は本体の音量ボタンで調整してください。')); }
 
 /* ---------- 音声の保存（ホーム画面に追加して使うとき） ---------- */
 // 一度再生した音声は端末に保存し、次からは保存済みのものを再生する（電波がなくても鳴る）
@@ -229,7 +220,7 @@ function saveForOffline(src){
   caches.open(AUDIO_CACHE).then(function(c){ return c.match(src).then(function(r){ return r||c.add(src); }); })
     .then(function(){ saving[src]=false; resolveSrc(src); },function(){ saving[src]=false; });
 }
-function warmUp(){ ['audio/alarm-work.mp3','audio/alarm-rest.mp3'].forEach(saveForOffline); resolveSrc(MODES[mode].src); }
+function warmUp(){ resolveSrc(MODES[mode].src); }
 warmUp();
 try{ if(navigator.serviceWorker) navigator.serviceWorker.addEventListener('controllerchange',warmUp); }catch(e){}
 
@@ -244,7 +235,6 @@ function play(){
   });
 }
 function start(){
-  stopPreview();
   var m=MODES[mode];
   if(A.dataset.track!==mode){ A.src=urlFor[m.src]||m.src; A.dataset.track=mode; }
   saveForOffline(m.src);
@@ -344,7 +334,7 @@ function render(){
   mainBtn.textContent=status==='idle'?'はじめる':status==='running'?'一時停止':status==='paused'?'再開':'もう一度';
   resetBtn.disabled=status==='idle';
   var isPomo=m.kind==='pomo';
-  $('steps').hidden=!isPomo; $('pomo-opts').hidden=!isPomo; $('repeat-row').hidden=!isPomo; $('med-opts').hidden=isPomo;
+  $('steps').hidden=!isPomo; $('repeat-row').hidden=!isPomo;
   breathEl.hidden=isPomo||!!m.quiet;
 }
 // 呼吸の円: 4秒で広がり、6秒で縮む
@@ -362,28 +352,6 @@ function frame(){
 }
 requestAnimationFrame(frame);
 
-/* ---------- 試聴 ---------- */
-var pKind=null,pTimer=null;
-function stopPreview(){
-  clearTimeout(pTimer); pKind=null;
-  try{ P.pause(); }catch(e){}
-  $('try-bgm').textContent='このBGMを10秒試聴';
-}
-function preview(kind){
-  var was=pKind; stopPreview();
-  if(kind==='bgm'&&was==='bgm') return;
-  if(status==='running'){ note='再生中は試聴できません'; render(); setTimeout(function(){ note=''; render(); },2500); return; }
-  if(status==='done') A.pause();
-  pKind=kind;
-  var src=kind==='work'?'audio/alarm-work.mp3':kind==='rest'?'audio/alarm-rest.mp3':MODES[mode].src;
-  P.src=urlFor[src]||src;
-  if(canVolume) P.volume=vol();
-  var p=P.play(); if(p&&p.catch) p.catch(function(){ stopPreview(); });
-  if(kind==='bgm'){ $('try-bgm').textContent='試聴を止める'; pTimer=setTimeout(stopPreview,11000); }
-}
-P.addEventListener('ended',stopPreview);
-P.addEventListener('loadedmetadata',function(){ if(pKind==='bgm'){ try{ P.currentTime=40; }catch(e){} } });
-
 /* ---------- 操作 ---------- */
 mainBtn.addEventListener('click',function(){
   if(status==='idle'||status==='done') start();
@@ -394,14 +362,14 @@ resetBtn.addEventListener('click',reset);
 Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(b){
   b.addEventListener('click',function(){
     if(b.dataset.mode===mode) return;
-    stopPreview(); reset(); mode=b.dataset.mode; resolveSrc(MODES[mode].src);
+    reset(); mode=b.dataset.mode; resolveSrc(MODES[mode].src);
     try{localStorage.setItem('shizuka.mode',mode)}catch(e){}
     Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(x){x.setAttribute('aria-selected',x===b?'true':'false')});
     render();
   });
 });
 volEl.addEventListener('input',function(){
-  if(canVolume){ A.volume=P.volume=vol(); }
+  if(canVolume){ A.volume=vol(); }
   try{localStorage.setItem('shizuka.vol',volEl.value)}catch(e){}
 });
 function setSets(n){
@@ -413,9 +381,6 @@ function setSets(n){
 }
 $('sets-minus').addEventListener('click',function(){setSets(targetSets-1)});
 $('sets-plus').addEventListener('click',function(){setSets(targetSets+1)});
-$('try-work').addEventListener('click',function(){preview('work')});
-$('try-rest').addEventListener('click',function(){preview('rest')});
-$('try-bgm').addEventListener('click',function(){preview('bgm')});
 document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible'){ applyBg(); logic(); render(); } });
 /* ---------- 背景 ---------- */
 var bgEl=$('bg'),photoEl=$('photo');
@@ -432,7 +397,6 @@ function applyBg(url){
   var ph=todayPhoto();
   bgEl.style.backgroundImage='url("'+(customBg||ph.f)+'")';
   $('bg-reset').hidden=!customBg;
-  $('credit').textContent=customBg?'':'今日の写真: '+ph.by+'（Unsplash）。写真は日替わりです。';
 }
 function applyPhoto(){ document.documentElement.style.setProperty('--photo',photoEl.value/100); }
 try{
