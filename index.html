@@ -149,10 +149,6 @@ label.mini{cursor:pointer;color:var(--ink);min-width:0}
   </div>
 
   <section class="panel" aria-label="音の設定">
-    <div class="row" id="vol-row">
-      <label for="vol">音量</label>
-      <input type="range" id="vol" min="0" max="100" value="70">
-    </div>
     <div class="row">
       <label for="photo">背景の濃さ</label>
       <input type="range" id="photo" min="10" max="45" value="32">
@@ -162,7 +158,7 @@ label.mini{cursor:pointer;color:var(--ink);min-width:0}
       <input type="file" id="bg-file" accept="image/*" class="vh"><label class="mini" for="bg-file">好みの背景に変更</label>
       <button class="mini" id="bg-reset" hidden>日替わりの写真に戻す</button>
     </div>
-    <p class="note" id="vol-note">画面を消しても、ほかのアプリに切り替えても音は続きます。<br>消音モードでも鳴ります。</p>
+    <p class="note" id="vol-note">画面を消しても、ほかのアプリに切り替えても音は続きます。<br>消音モードでも鳴ります。<br>音量は本体の音量ボタンで調整してください。</p>
   </section>
 </main>
 
@@ -172,15 +168,15 @@ label.mini{cursor:pointer;color:var(--ink);min-width:0}
 // 音はあらかじめ書き出した音声ファイルを <audio> で再生する。
 // 画面を消しても再生が続き、残り時間は音声の再生位置から求める。
 var MODES={
-  m5:{kind:'med',dur:300,src:'audio/m5.mp3',label:'瞑想',title:'瞑想 5分'},
-  m10:{kind:'med',dur:600,src:'audio/m10.mp3',label:'瞑想',title:'瞑想 10分'},
+  m5:{kind:'med',dur:300,src:'audio/m5-v2.mp3',label:'瞑想',title:'瞑想 5分'},
+  m10:{kind:'med',dur:600,src:'audio/m10-v2.mp3',label:'瞑想',title:'瞑想 10分'},
   pomo:{kind:'pomo',work:1500,rest:300,src:'audio/pomodoro.mp3',title:'ポモドーロ'},
   bath:{kind:'med',dur:3600,src:'audio/bath.mp3',label:'倍音浴',title:'倍音浴 60分',quiet:true}
 };
 var LEAD=0.25; // 瞑想の音声は、はじめの鐘の前にこの秒数だけ間がある
 var $=function(id){return document.getElementById(id)};
 var app=$('app'),prog=$('prog'),timeEl=$('time'),phaseEl=$('phase'),hintEl=$('hint'),
-    mainBtn=$('main'),resetBtn=$('reset'),volEl=$('vol'),breathEl=$('breath');
+    mainBtn=$('main'),resetBtn=$('reset'),breathEl=$('breath');
 var CIRC=2*Math.PI*142;
 prog.style.strokeDasharray=CIRC;
 
@@ -193,52 +189,26 @@ var targetSets=1; // ポモドーロをくり返すセット数
 
 /* ---------- 保存された設定 ---------- */
 try{
-  var v=localStorage.getItem('shizuka.vol'); if(v!==null) volEl.value=v;
   var sv=parseInt(localStorage.getItem('shizuka.sets'),10); if(sv>=1&&sv<=12) targetSets=sv;
   var sm=localStorage.getItem('shizuka.mode');
   if(sm&&MODES[sm]){ mode=sm; Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(x){x.setAttribute('aria-selected',x.dataset.mode===sm?'true':'false')}); }
 }catch(e){}
-function vol(){return Math.pow(volEl.value/100,1.6)}
-// iPhoneはページから音量を変えられない（本体のボタンで調整する）
-var canVolume=true;
-try{ A.volume=0.5; canVolume=Math.abs(A.volume-0.5)<0.01; }catch(e){ canVolume=false; }
-if(canVolume){ A.volume=vol(); }
-else { $('vol-row').hidden=true; $('vol-note').appendChild(document.createElement('br')); $('vol-note').appendChild(document.createTextNode('音量は本体の音量ボタンで調整してください。')); }
-
-/* ---------- 音声の保存（ホーム画面に追加して使うとき） ---------- */
-// 一度再生した音声は端末に保存し、次からは保存済みのものを再生する（電波がなくても鳴る）
-var AUDIO_CACHE='shizuka-audio-v1',urlFor={},saving={};
-function offlineReady(){ try{ return !!(window.caches&&navigator.serviceWorker&&navigator.serviceWorker.controller); }catch(e){ return false; } }
-function resolveSrc(src){
-  if(urlFor[src]||!offlineReady()) return;
-  caches.open(AUDIO_CACHE).then(function(c){ return c.match(src); }).then(function(r){ return r&&r.blob(); })
-    .then(function(b){ if(b&&!urlFor[src]) urlFor[src]=URL.createObjectURL(b); }).catch(function(){});
-}
-function saveForOffline(src){
-  if(urlFor[src]||saving[src]||!offlineReady()) return;
-  saving[src]=true;
-  caches.open(AUDIO_CACHE).then(function(c){ return c.match(src).then(function(r){ return r||c.add(src); }); })
-    .then(function(){ saving[src]=false; resolveSrc(src); },function(){ saving[src]=false; });
-}
-function warmUp(){ resolveSrc(MODES[mode].src); }
-warmUp();
-try{ if(navigator.serviceWorker) navigator.serviceWorker.addEventListener('controllerchange',warmUp); }catch(e){}
 
 /* ---------- 進行 ---------- */
+var stallCt=-1,stallAt=0,slow=false;
 function play(){
-  loading=true; note='';
+  loading=true; note=''; slow=false; stallCt=-1; stallAt=Date.now();
   var p=A.play();
-  if(p&&p.catch) p.catch(function(){
+  if(p&&p.catch) p.catch(function(err){
     if(status!=='running') return;
     status=A.currentTime>0?'paused':'idle'; loading=false;
-    note='音を再生できませんでした。通信を確かめて、もう一度押してください'; render();
+    note='音を再生できませんでした（'+((err&&err.name)||'原因不明')+'）。もう一度押してください'; render();
   });
 }
 function start(){
   var m=MODES[mode];
-  if(A.dataset.track!==mode){ A.src=urlFor[m.src]||m.src; A.dataset.track=mode; }
-  saveForOffline(m.src);
-  try{ A.currentTime=0; }catch(e){}
+  if(A.dataset.track!==mode||A.readyState===0){ A.src=m.src; A.dataset.track=mode; A.load(); }
+  else { try{ A.currentTime=0; }catch(e){} }
   setsDone=0; lastCt=0;
   A.loop=m.kind==='pomo'&&targetSets>1;
   status='running'; play(); setSession(m); render();
@@ -253,6 +223,8 @@ function elapsed(){
 function logic(){
   if(status!=='running') return;
   var m=MODES[mode],ct=A.currentTime;
+  // 再生位置が10秒進まなければ、読み込みが止まっていると知らせる
+  if(ct!==stallCt){ stallCt=ct; stallAt=Date.now(); slow=false; } else if(Date.now()-stallAt>10000) slow=true;
   if(m.kind==='med'){ if(ct-LEAD>=m.dur) status='done'; } // 終わりの鐘はこのあとも鳴り続ける
   else {
     if(ct<lastCt-900) setsDone++;       // 音声が頭に戻った = 次のセットに入った
@@ -271,8 +243,8 @@ A.addEventListener('play',function(){ if(status==='paused'){ status='running'; r
 A.addEventListener('ended',function(){ if(status==='running'||status==='paused'){ status='done'; render(); } });
 A.addEventListener('error',function(){
   if(status==='idle'||status==='done') return;
-  status='idle'; loading=false; A.dataset.track=''; resolveSrc(MODES[mode].src);
-  note='音声を読み込めませんでした。通信を確かめて、もう一度押してください'; render();
+  status='idle'; loading=false; A.dataset.track='';
+  note='音声を読み込めませんでした（コード'+((A.error&&A.error.code)||'不明')+'）。通信を確かめて、もう一度押してください'; render();
 });
 function setSession(m){
   try{
@@ -326,6 +298,7 @@ function render(){
   }
   if(status==='done'){ rem=0; frac=1; }
   if(status==='running'&&loading) hint='読み込み中…';
+  if(status==='running'&&slow) hint='音声が始まりません。通信を確かめるか、リセットしてやり直してください';
   if(note) hint=note;
   app.dataset.tone=tone;
   phaseEl.textContent=phase; hintEl.textContent=hint;
@@ -362,15 +335,11 @@ resetBtn.addEventListener('click',reset);
 Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(b){
   b.addEventListener('click',function(){
     if(b.dataset.mode===mode) return;
-    reset(); mode=b.dataset.mode; resolveSrc(MODES[mode].src);
+    reset(); mode=b.dataset.mode;
     try{localStorage.setItem('shizuka.mode',mode)}catch(e){}
     Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(x){x.setAttribute('aria-selected',x===b?'true':'false')});
     render();
   });
-});
-volEl.addEventListener('input',function(){
-  if(canVolume){ A.volume=vol(); }
-  try{localStorage.setItem('shizuka.vol',volEl.value)}catch(e){}
 });
 function setSets(n){
   var min=status==='idle'?1:Math.min(setsDone+1,12);
@@ -426,9 +395,10 @@ $('bg-file').addEventListener('change',function(ev){
 });
 $('bg-reset').addEventListener('click',function(){ applyBg(''); try{localStorage.removeItem('shizuka.bg')}catch(e){} });
 render();
-// ホーム画面に追加して単体で開いたときは、電波がなくても起動できるようにする
+// 以前の版が端末に残した保存データを片づける（古い音声データが再生を妨げることがあるため）
 try{
-  if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost')&&window.top===window) navigator.serviceWorker.register('sw.js').catch(function(){});
+  if(navigator.serviceWorker&&navigator.serviceWorker.getRegistrations) navigator.serviceWorker.getRegistrations().then(function(rs){ rs.forEach(function(r){ r.unregister(); }); }).catch(function(){});
+  if(window.caches) caches.keys().then(function(ks){ ks.forEach(function(k){ if(k.indexOf('shizuka')===0) caches.delete(k); }); }).catch(function(){});
 }catch(e){}
 })();
 </script>
