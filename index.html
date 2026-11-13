@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Old+Mincho:wght@400;600&display=swap" rel="stylesheet">
 <style>
-/* 配置: 1カラム。上に切り替え、中央に輪と残り時間、下に操作と設定。淡い地に森の写真を薄く敷き、文字は深い苔色。 */
+/* 配置: 1カラム。上に切り替え、中央に輪と残り時間（輪を押して再生・一時停止）、下にリセットと設定。淡い地に森の写真を薄く敷き、文字は深い苔色。 */
 :root{
   color-scheme:light;
   --bg:#F3F6EE;
@@ -56,18 +56,29 @@ h1{font-family:var(--display);font-weight:600;font-size:26px;letter-spacing:.14e
 .tab[aria-selected="true"]{background:var(--sel);border-color:var(--sel);color:var(--surface)}
 .tab[aria-selected="true"] span{color:inherit}
 
-.stage{position:relative;width:min(100%,340px);aspect-ratio:1;margin:4px auto 0}
+.stage{position:relative;width:min(85%,300px);aspect-ratio:1;margin:4px auto 0}
 .stage::before{content:"";position:absolute;inset:2.7%;border-radius:50%;background:rgba(246,248,241,.86)}
-.stage svg{position:relative;width:100%;height:100%;display:block;transform:rotate(-90deg)}
+.stage>svg{position:relative;width:100%;height:100%;display:block;transform:rotate(-90deg)}
 .track{fill:none;stroke:var(--line);stroke-width:2}
 .prog{fill:none;stroke:var(--tone);stroke-width:5;stroke-linecap:round;transition:stroke .4s}
-.breath{position:absolute;inset:17%;border-radius:50%;background:var(--tone);opacity:.13;transform:scale(.62);will-change:transform}
-.readout{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-align:center}
+.breath{position:absolute;left:50%;top:78%;width:21.5%;height:21.5%;transform:translate(-50%,-50%);border-radius:50%;background:var(--tone);opacity:.16}
+.readout{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-align:center;
+  background:none;border:0;padding:0 12%;margin:0;border-radius:50%;font:inherit;color:inherit;cursor:pointer;-webkit-appearance:none;appearance:none}
+.readout>span{display:block}
+.readout .time{display:flex}
+/* 上に種類、中央に残り時間、その下に小さな緑の円と再生・一時停止の印 */
+.readout>.phase{position:absolute;left:0;right:0;top:27%}
+.readout>.time{position:absolute;left:0;right:0;top:51.5%;transform:translateY(-50%);justify-content:center;font-size:clamp(48px,19vw,74px)}
+.readout>.pp{position:absolute;left:50%;top:78%;width:6.5%;height:6.5%;transform:translate(-50%,-50%);color:var(--tone);opacity:.7;display:flex;align-items:center;justify-content:center;transition:opacity .15s}
+.readout:active>.pp{opacity:1}
+.pp svg{width:100%;height:100%;display:block}
+.pp .i-play{margin-left:8%}
+.readout[data-state="play"] .i-pause,.readout[data-state="pause"] .i-play{display:none}
 .phase{font-size:14px;letter-spacing:.3em;color:var(--tone);font-weight:700;padding-left:.3em;min-height:1.6em}
 .time{font-family:var(--display);font-size:clamp(54px,19vw,82px);line-height:1;display:flex}
 .time i{font-style:normal;width:.6em;text-align:center}
 .time i.c{width:.3em}
-.hint{font-size:13px;color:var(--muted);min-height:1.6em}
+.hint{font-size:13px;color:var(--muted);min-height:1.6em;margin:8px 0 6px;text-align:center;white-space:pre-line}
 
 .steps{display:flex;gap:8px;justify-content:center;align-items:center;font-size:13px;color:var(--muted);min-height:26px;flex-wrap:wrap}
 .step{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:2px 12px}
@@ -96,7 +107,7 @@ input[type=range]{flex:1;min-width:140px;height:44px;margin:0;accent-color:var(-
 label.mini{cursor:pointer;color:var(--ink);min-width:0}
 .note{color:var(--muted);font-size:12.5px;margin:0}
 #vol-note{font-size:clamp(10px,2.9vw,12.5px)}
-@media (prefers-reduced-motion: reduce){.breath{display:none}.tab,.prog{transition:none}}
+@media (prefers-reduced-motion: reduce){.tab,.prog,.pp{transition:none}}
 </style>
 </head>
 <body>
@@ -120,12 +131,16 @@ label.mini{cursor:pointer;color:var(--ink);min-width:0}
       <circle class="prog" id="prog" cx="150" cy="150" r="142"/>
     </svg>
     <div class="breath" id="breath"></div>
-    <div class="readout">
-      <div class="phase" id="phase">瞑想</div>
-      <div class="time" id="time" role="timer" aria-live="off"></div>
-      <div class="hint" id="hint">鐘の音ではじまります</div>
-    </div>
+    <button class="readout" id="main" data-state="play" aria-label="はじめる">
+      <span class="phase" id="phase">瞑想</span>
+      <span class="time" id="time" role="timer" aria-live="off"></span>
+      <span class="pp" aria-hidden="true">
+        <svg class="i-play" viewBox="0 0 24 24" width="22" height="22"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg>
+        <svg class="i-pause" viewBox="0 0 24 24" width="22" height="22"><path d="M7 5h3.5v14H7zM13.500 5H17v14h-3.500z" fill="currentColor"/></svg>
+      </span>
+    </button>
   </div>
+  <p class="hint" id="hint">鐘の音ではじまります</p>
 
   <div class="steps" id="steps" hidden>
     <span class="step" id="step-work">作業 25分</span><span>→</span>
@@ -134,7 +149,6 @@ label.mini{cursor:pointer;color:var(--ink);min-width:0}
   </div>
 
   <div class="controls">
-    <button class="btn primary" id="main">はじめる</button>
     <button class="btn" id="reset" disabled>リセット</button>
   </div>
 
@@ -168,15 +182,15 @@ label.mini{cursor:pointer;color:var(--ink);min-width:0}
 // 音はあらかじめ書き出した音声ファイルを <audio> で再生する。
 // 画面を消しても再生が続き、残り時間は音声の再生位置から求める。
 var MODES={
-  m5:{kind:'med',dur:300,src:'audio/m5-v2.mp3',label:'瞑想',title:'瞑想 5分'},
-  m10:{kind:'med',dur:600,src:'audio/m10-v2.mp3',label:'瞑想',title:'瞑想 10分'},
+  m5:{kind:'med',dur:300,src:'audio/m5.mp3',label:'瞑想',title:'瞑想 5分'},
+  m10:{kind:'med',dur:600,src:'audio/m10.mp3',label:'瞑想',title:'瞑想 10分'},
   pomo:{kind:'pomo',work:1500,rest:300,src:'audio/pomodoro.mp3',title:'ポモドーロ'},
   bath:{kind:'med',dur:3600,src:'audio/bath.mp3',label:'倍音浴',title:'倍音浴 60分',quiet:true}
 };
 var LEAD=0.25; // 瞑想の音声は、はじめの鐘の前にこの秒数だけ間がある
 var $=function(id){return document.getElementById(id)};
 var app=$('app'),prog=$('prog'),timeEl=$('time'),phaseEl=$('phase'),hintEl=$('hint'),
-    mainBtn=$('main'),resetBtn=$('reset'),breathEl=$('breath');
+    mainBtn=$('main'),resetBtn=$('reset');
 var CIRC=2*Math.PI*142;
 prog.style.strokeDasharray=CIRC;
 
@@ -287,7 +301,7 @@ function render(){
       hint=status==='paused'?'一時停止中':(rem<=0?(cur<targetSets?'まもなく次のセットです':'おつかれさまでした'):'終わると木の音と低い鐘が鳴ります');
     } else {
       rem=m.work-el; frac=el/m.work; tone='work'; phase='作業';
-      hint=status==='paused'?'一時停止中':(status==='idle'?'25分後と、その5分後に別の音が鳴ります':'終わると明るいチャイムが鳴ります');
+      hint=status==='paused'?'一時停止中':(status==='idle'?'25分後の終了時と\n休憩終了時にそれぞれ音が鳴ります':'終わると明るいチャイムが鳴ります');
     }
     $('step-work').classList.toggle('on',tone==='work'&&status!=='done');
     $('step-rest').classList.toggle('on',tone==='rest'&&status!=='done');
@@ -304,26 +318,12 @@ function render(){
   phaseEl.textContent=phase; hintEl.textContent=hint;
   setTime(fmt(rem));
   prog.style.strokeDashoffset=CIRC*(1-frac);
-  mainBtn.textContent=status==='idle'?'はじめる':status==='running'?'一時停止':status==='paused'?'再開':'もう一度';
+  mainBtn.setAttribute('aria-label',status==='idle'?'はじめる':status==='running'?'一時停止':status==='paused'?'再開':'もう一度');
+  mainBtn.dataset.state=status==='running'?'pause':'play';
   resetBtn.disabled=status==='idle';
   var isPomo=m.kind==='pomo';
   $('steps').hidden=!isPomo; $('repeat-row').hidden=!isPomo;
-  breathEl.hidden=isPomo||!!m.quiet;
 }
-// 呼吸の円: 4秒で広がり、6秒で縮む
-function frame(){
-  if(MODES[mode].kind==='med'&&!MODES[mode].quiet){
-    var s=0.62;
-    if(status==='running'||status==='paused'){
-      var c=elapsed()%10, k=c<4?c/4:1-(c-4)/6;
-      k=0.5-0.5*Math.cos(Math.PI*k);
-      s=0.62+0.38*k;
-    }
-    breathEl.style.transform='scale('+s.toFixed(3)+')';
-  }
-  requestAnimationFrame(frame);
-}
-requestAnimationFrame(frame);
 
 /* ---------- 操作 ---------- */
 mainBtn.addEventListener('click',function(){
