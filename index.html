@@ -68,7 +68,8 @@ h1{font-family:var(--display);font-weight:600;font-size:26px;letter-spacing:.14e
 .readout .time{display:flex}
 /* 上に種類、中央に残り時間、その下に小さな緑の円と再生・一時停止の印 */
 .readout>.phase{position:absolute;left:0;right:0;top:27%}
-.readout>.time{position:absolute;left:0;right:0;top:51.5%;transform:translateY(-50%);justify-content:center;font-size:clamp(48px,19vw,74px)}
+/* 数字の見た目の中心が円の中心に来るよう、文字の上下の余白ぶんだけ上へずらしている */
+.readout>.time{position:absolute;left:0;right:0;top:48.6%;transform:translateY(-50%);justify-content:center;font-size:clamp(45px,calc(19vw - 3px),71px)}
 .readout>.pp{position:absolute;left:50%;top:78%;width:6.5%;height:6.5%;transform:translate(-50%,-50%);color:var(--tone);opacity:.7;display:flex;align-items:center;justify-content:center;transition:opacity .15s}
 .readout:active>.pp{opacity:1}
 .pp svg{width:100%;height:100%;display:block}
