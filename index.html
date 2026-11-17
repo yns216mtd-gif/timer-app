@@ -120,7 +120,7 @@ label.mini{cursor:pointer;color:var(--ink);min-width:0}
   </header>
 
   <div class="tabs" role="tablist" aria-label="タイマーの種類">
-    <button class="tab" role="tab" id="tab-m5" data-mode="m5" aria-selected="true"><b>瞑想 5分</b><span>BGM 朝の光</span></button>
+    <button class="tab" role="tab" id="tab-m5" data-mode="m5" aria-selected="true"><b>瞑想 5分</b><span>BGM 朝の波</span></button>
     <button class="tab" role="tab" id="tab-m10" data-mode="m10" aria-selected="false"><b>瞑想 10分</b><span>BGM 夜の波</span></button>
     <button class="tab" role="tab" id="tab-pomo" data-mode="pomo" aria-selected="false"><b>ポモドーロ</b><span>25分 + 5分</span></button>
     <button class="tab" role="tab" id="tab-bath" data-mode="bath" aria-selected="false"><b>倍音浴 60分</b><span>クリスタルボウル</span></button>
@@ -183,8 +183,8 @@ label.mini{cursor:pointer;color:var(--ink);min-width:0}
 // 音はあらかじめ書き出した音声ファイルを <audio> で再生する。
 // 画面を消しても再生が続き、残り時間は音声の再生位置から求める。
 var MODES={
-  m5:{kind:'med',dur:300,src:'audio/m5-v3.mp3',label:'瞑想',title:'瞑想 5分'},
-  m10:{kind:'med',dur:600,src:'audio/m10.mp3',label:'瞑想',title:'瞑想 10分'},
+  m5:{kind:'med',dur:300,src:'audio/m5-v4.mp3',label:'瞑想',title:'瞑想 5分'},
+  m10:{kind:'med',dur:600,src:'audio/m10-v3.mp3',label:'瞑想',title:'瞑想 10分'},
   pomo:{kind:'pomo',work:1500,rest:300,src:'audio/pomodoro.mp3',title:'ポモドーロ'},
   bath:{kind:'med',dur:3600,src:'audio/bath-v2.mp3',label:'倍音浴',title:'倍音浴 60分',quiet:true}
 };
