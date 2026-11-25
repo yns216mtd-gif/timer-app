@@ -106,6 +106,7 @@ input[type=range]{flex:1;min-width:140px;height:44px;margin:0;accent-color:var(-
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .vh:focus-visible+label{outline:2px solid var(--tone);outline-offset:3px}
 label.mini{cursor:pointer;color:var(--ink);min-width:0}
+.bgrow{justify-content:center}
 .note{color:var(--muted);font-size:12.5px;margin:0}
 #vol-note{font-size:clamp(10px,2.9vw,12.5px)}
 @media (prefers-reduced-motion: reduce){.tab,.prog,.pp{transition:none}}
@@ -168,8 +169,7 @@ label.mini{cursor:pointer;color:var(--ink);min-width:0}
       <label for="photo">背景の濃さ</label>
       <input type="range" id="photo" min="10" max="45" value="32">
     </div>
-    <div class="row">
-      <span class="lab">背景</span>
+    <div class="row bgrow">
       <input type="file" id="bg-file" accept="image/*" class="vh"><label class="mini" for="bg-file">好みの背景に変更</label>
       <button class="mini" id="bg-reset" hidden>日替わりの写真に戻す</button>
     </div>
@@ -183,8 +183,8 @@ label.mini{cursor:pointer;color:var(--ink);min-width:0}
 // 音はあらかじめ書き出した音声ファイルを <audio> で再生する。
 // 画面を消しても再生が続き、残り時間は音声の再生位置から求める。
 var MODES={
-  m5:{kind:'med',dur:300,src:'audio/m5-v4.mp3',label:'瞑想',title:'瞑想 5分'},
-  m10:{kind:'med',dur:600,src:'audio/m10-v3.mp3',label:'瞑想',title:'瞑想 10分'},
+  m5:{kind:'med',dur:300,src:'audio/m5-v5.mp3',label:'瞑想',title:'瞑想 5分'},
+  m10:{kind:'med',dur:600,src:'audio/m10-v4.mp3',label:'瞑想',title:'瞑想 10分'},
   pomo:{kind:'pomo',work:1500,rest:300,src:'audio/pomodoro.mp3',title:'ポモドーロ'},
   bath:{kind:'med',dur:3600,src:'audio/bath-v2.mp3',label:'倍音浴',title:'倍音浴 60分',quiet:true}
 };
